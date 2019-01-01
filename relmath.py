@@ -1,8 +1,8 @@
 
 from tabulate import tabulate
 from wcwidth import wcswidth
-
 from contextlib import contextmanager
+import inspect
 
 class LogLevel:
     NOTHING = 0
@@ -26,35 +26,56 @@ class S:
         return S._quotes[-1]
 
 @contextmanager
-def Q(p):
+def quote(state=S):
     debug('quoted')
     
-    S._quotes.append(True)
-    S.quote_level += 2
+    state._quotes.append(True)
+    state.quote_level += 2
     yield 
-    S.quote_level -= 2   
+    state.quote_level -= 2   
     
     
     debug('/quoted')
-    S._quotes.pop()
+    state._quotes.pop()
+
+
 
 @contextmanager
-def let(p, local_vars):
-    # import copy   # deepcopy didn't work ...
+def let(state=S):
 
-    old_locs = {key:value for (key,value) in local_vars.items()}
+    """ DIRTY stack manipulation, 
+    
+        had to do this as other solution works only in global script and not inside functions:
+
+        @contextmanager
+        def let(local_vars, p=S):
+        
+            old_locs = {key:value for (key,value) in local_vars.items()}
+            yield
+            debug('local vars diff = %s' % (local_vars.keys() - old_locs.keys()))
+
+        Called with
+    
+        with let(locals()):
+            baobab = 'w'
+
+    """
+
+    f=inspect.stack()[2].frame  # because of implicit __enter__ call
+    oldvars = dict(f.f_locals)  # Take copy of locals dict.
     yield
-    debug('local vars diff = %s' % (local_vars.keys() - old_locs.keys()))
+    
+    debug('local vars diff = %s' % (f.f_locals.keys() - oldvars.keys()))
 
 @contextmanager
-def UQ(p):
+def unquote(state=S):
     debug('unquoted')
-    S._quotes.append(False)
-    S.quote_level += 2
+    state._quotes.append(False)
+    state.quote_level += 2
     yield 
-    S.quote_level -= 2   
+    state.quote_level -= 2   
     debug('/unquoted')
-    S._quotes.pop()
+    state._quotes.pop()
 
 
 
@@ -263,7 +284,7 @@ class RelMul(BinOp):
         return '__mul__'
 
     def simp(self):
-        with UQ(S):
+        with unquote():
             lsimp = self.left.simp()
             rsimp = self.right.simp()
             return lsimp * rsimp
@@ -291,7 +312,7 @@ class RelAdd(BinOp):
         return '__add__'
 
     def simp(self):
-        with UQ(S):
+        with unquote():
             lsimp = self.left.simp()
             rsimp = self.right.simp()
             return lsimp + rsimp
@@ -343,7 +364,7 @@ class T(UnOp):
         return self.val.dom
    
     def simp(self):
-        with UQ(S):
+        with unquote():
             return self.val.simp().T
 
     def latex(self):
@@ -360,7 +381,7 @@ class Neg(UnOp):
 
 
     def simp(self):
-        with UQ(S):
+        with unquote():
             return -self.val
 
     def latex(self):

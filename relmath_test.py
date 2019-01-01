@@ -30,7 +30,7 @@ class TestState:
     def test_quotes(self):
         print(S._quotes)
 
-        with Q(S):
+        with quote():
             print(S._quotes)
         print(S._quotes)
 
@@ -108,12 +108,12 @@ class TestTranspose:
 
     def test_simp_T(self):
         M1 = m1()
-        with Q(S):
+        with quote():
             M1T = M1.T
         assert M1T.simp().g == m1().g
 
         M21 = m21()
-        with Q(S):
+        with quote():
             M21T = M21.T 
         assert M21T.simp() == m12()
 
@@ -127,12 +127,12 @@ class TestTranspose:
 
     def test_simp_TT(self):
         M21 = m21()
-        with Q(S):
+        with quote():
             M21TT = M21.T.T
         assert M21TT.simp() == m21()
 
         M12 = m12()
-        with Q(S):
+        with quote():
             M12TT = M12.T.T
         assert M12TT.simp() == m12()
 
@@ -184,32 +184,32 @@ def test_trial():
     print(-Rel([[RD(1)]],['a'],['x'],name='M') == Rel([[RD(-1)]],['a'],['x'],name='M'))
 
     pexpr('M.T', M.T)
-    with Q(S):
+    with quote():
         pexpr('M.T', M.T)
     pexpr('U.T', U.T)
-    with Q(S):
+    with quote():
         pexpr('U.T', U.T)
 
 
     pexpr('M', M)
 
-    with Q(S):
+    with quote():
         pexpr('M.T', M.T)
     pexpr('-M', -M)
-    with Q(S):    
+    with quote():    
         pexpr('-M', -M)
 
     E = RelMul(M, T(M))
     pexpr('M*M.T', (M*M.T))
-    with Q(S):
+    with quote():
         pexpr('M*M.T', (M*M.T))
 
     pexpr("RelMul(M, T(M))", RelMul(M, T(M)))
-    with Q(S):
+    with quote():
         pexpr("RelMul(M, T(M))", RelMul(M, T(M)))
 
     pexpr("RelMul(M, T(M)).simp()" , RelMul(M, T(M)).simp())
-    with Q(S):
+    with quote():
         pexpr("RelMul(M, T(M)).simp()" , RelMul(M, T(M)).simp())
 
     print(sjoin("ciao\npippo", "hello\ndear\nworld"))
@@ -217,10 +217,10 @@ def test_trial():
     print(sjoin("ciao\npippo", "hello\ndear\nworld\nciao\nmondo\nche\nbello", valign='center'))
 
 
-    with Q(S):    
+    with quote():    
         pexpr('-U' , -U)
 
-    with Q(S):    
+    with quote():    
         pexpr('U.T',  U.T)
 
     pexpr("RelMul(M, T(M))" , RelMul(M, T(M)))
@@ -240,21 +240,24 @@ def test_scopes():
         y = 'b'
         print('locals in g %s' % locals())
         print('x in g globals? %s' % 'x' in globals())
-        print('x in g frame_vars? %s' % 'x' in frame_vars())
-
+       
     z = 'c'
     print('locals in root %s' % locals())
     print('z in root globals ? %s' % 'z' in  globals())
     f()    
 
-    S.verbosity = LogLevel.DEBUG
-
-    with Q(S):
+    with quote():
         locs = locals()
         print('u in locals() %s' % ('u' in locs))
         u = 'w'
-        print('u in locals() %s' % ('u' in locs))
+        print('u in locs %s' % ('u' in locs))
+        print('u in locals() %s' % ('u' in locals()))
 
-
-    with let(S, locals()):
+    with let():
         baobab = 'w'
+        #S.save(locals())
+
+S.verbosity = LogLevel.DEBUG
+    
+    
+test_scopes()
