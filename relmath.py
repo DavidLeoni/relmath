@@ -14,8 +14,9 @@ class LogLevel:
 
 class S:
     _quotes = [False]
-    level = 0
-    
+    """ 
+    """
+    quote_level = 0
     verbosity = LogLevel.INFO
 
     @staticmethod
@@ -27,20 +28,31 @@ class S:
 @contextmanager
 def Q(p):
     debug('quoted')
+    
     S._quotes.append(True)
-    S.level += 2
+    S.quote_level += 2
     yield 
-    S.level -= 2   
+    S.quote_level -= 2   
+    
+    
     debug('/quoted')
     S._quotes.pop()
+
+@contextmanager
+def let(p, local_vars):
+    # import copy   # deepcopy didn't work ...
+
+    old_locs = {key:value for (key,value) in local_vars.items()}
+    yield
+    debug('local vars diff = %s' % (local_vars.keys() - old_locs.keys()))
 
 @contextmanager
 def UQ(p):
     debug('unquoted')
     S._quotes.append(False)
-    S.level += 2
+    S.quote_level += 2
     yield 
-    S.level -= 2   
+    S.quote_level -= 2   
     debug('/unquoted')
     S._quotes.pop()
 
@@ -94,7 +106,7 @@ def sjoin(s1,s2, valign='top'):
     return ret
 
 def format_log(msg=""):
-    pad = " "* S.level
+    pad = " "* S.quote_level
     return pad + str(msg).replace('\n','\n' + pad)
 
 def fatal(msg, ex=None):

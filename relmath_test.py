@@ -226,3 +226,35 @@ def test_trial():
     pexpr("RelMul(M, T(M))" , RelMul(M, T(M)))
 
     pexpr(" -Rel([[RD(1)]],['a'],['x'],name='M')",  -Rel([[RD(1)]],['a'],['x'],name='M'))
+
+
+def test_scopes():
+
+    def f():
+        x = 'a'
+        print('locals in f %s' % locals())
+        print('z in f globals? %s' %  'z' in globals())
+        g()
+
+    def g():
+        y = 'b'
+        print('locals in g %s' % locals())
+        print('x in g globals? %s' % 'x' in globals())
+        print('x in g frame_vars? %s' % 'x' in frame_vars())
+
+    z = 'c'
+    print('locals in root %s' % locals())
+    print('z in root globals ? %s' % 'z' in  globals())
+    f()    
+
+    S.verbosity = LogLevel.DEBUG
+
+    with Q(S):
+        locs = locals()
+        print('u in locals() %s' % ('u' in locs))
+        u = 'w'
+        print('u in locals() %s' % ('u' in locs))
+
+
+    with let(S, locals()):
+        baobab = 'w'
