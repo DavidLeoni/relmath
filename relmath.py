@@ -12,36 +12,94 @@ class LogLevel:
     INFO = 4
     DEBUG = 5
 
-class S:
-    _quotes = [False]
-    """ 
-    """
-    quote_level = 0
-    verbosity = LogLevel.INFO
+class State:
 
-    @staticmethod
-    def q():
+    s = None
+
+    def __init__(self):
+        self._format_level = 0
+        self.verbosity = LogLevel.INFO
+
+        self._quotes = [False]
+        #self._local_vars = []  # list of dicts
+        self._frames = []
+        self._old_local_var_keys = []  # list of sets (of keys)
+
+    
+    def find_expr_name(self, expr):
+        """
+            Return the last name associated to an expression.
+            If not found, return the empty string.
+        """
+        i = len(self._frames) - 1
+        for frame in reversed(self._frames):
+            diff_keys = frame.f_locals.keys() - self._old_local_var_keys[i]
+            for k in diff_keys:
+                if expr == frame.f_locals[k]:
+                    return k
+            for k in frame.f_globals.keys():
+                if expr == frame.f_globals[k]:
+                    return k
+            i -= 1
+        return ""
+
+    def expr_name(self, expr):
+        """ Return the last name associated to an expression.
+            If not found, raises NameError
+        """
+        n = self.find_expr_name(expr)
+        if not n:
+            raise NameError("Couldn't find a name for given expression !")
+
+    def local_vars(self):
+        ret = {}
+
+        """
+        i = len(self._local_vars) - 1
+
+        for loc_vars in reversed(self._local_vars):
+            diff_keys = loc_vars.keys() - self._old_local_var_keys[i]
+            for k in diff_keys:
+                if k not in ret:
+                    ret[k] = loc_vars[k]
+            i -= 1
+        return ret
+        """
+        i = len(self._frames) - 1
+
+        for frame in reversed(self._frames):
+            diff_keys = frame.f_locals.keys() - self._old_local_var_keys[i]
+            for k in diff_keys:
+                if k not in ret:
+                    ret[k] = frame.f_locals[k]
+            i -= 1
+        return ret
+
+
+    def q(self):
         """ Return True if system is operating under quotation, False otherwise
         """
-        return S._quotes[-1]
+        return self._quotes[-1]
+
+State.s = State()
+    
 
 @contextmanager
-def quote(state=S):
+def quote(state=State.s):
     debug('quoted')
     
     state._quotes.append(True)
-    state.quote_level += 2
+    state._format_level += 2
     yield 
-    state.quote_level -= 2   
+    state._format_level -= 2   
     
     
     debug('/quoted')
     state._quotes.pop()
 
 
-
 @contextmanager
-def let(state=S):
+def let(state=State.s):
 
     """ DIRTY stack manipulation, 
     
@@ -60,20 +118,24 @@ def let(state=S):
             baobab = 'w'
 
     """
-
     f=inspect.stack()[2].frame  # because of implicit __enter__ call
-    oldvars = dict(f.f_locals)  # Take copy of locals dict.
+    #state._local_vars.append(f.f_locals)
+    state._frames.append(f)
+    state._old_local_var_keys.append(set(f.f_locals.keys()))
+    state._format_level += 2
     yield
+    debug('local vars diff = %s' % state.local_vars())
+    state._format_level -= 2
+    state._frames.pop()
+    state._old_local_var_keys.pop()
     
-    debug('local vars diff = %s' % (f.f_locals.keys() - oldvars.keys()))
-
 @contextmanager
-def unquote(state=S):
+def unquote(state=State.s):
     debug('unquoted')
     state._quotes.append(False)
-    state.quote_level += 2
+    state._format_level += 2
     yield 
-    state.quote_level -= 2   
+    state._format_level -= 2   
     debug('/unquoted')
     state._quotes.pop()
 
@@ -127,13 +189,13 @@ def sjoin(s1,s2, valign='top'):
     return ret
 
 def format_log(msg=""):
-    pad = " "* S.quote_level
+    pad = " "* State.s._format_level
     return pad + str(msg).replace('\n','\n' + pad)
 
 def fatal(msg, ex=None):
     """ Prints error and exits (halts program execution immediatly)
     """
-    if S.verbosity >= LogLevel.FATAL:    
+    if State.s.verbosity >= LogLevel.FATAL:    
 
         if ex == None:
             exMsg = ""
@@ -158,7 +220,7 @@ def log_error(msg, ex=None):
 def error(msg, ex=None):
     """ Prints error and reraises Exception
     """
-    if S.verbosity >= LogLevel.ERROR:    
+    if State.s.verbosity >= LogLevel.ERROR:    
 
         log_error(msg, ex)
         if ex != None:
@@ -167,7 +229,7 @@ def error(msg, ex=None):
             raise Exception(msg)
 
 def warn(msg, ex=None):
-    if S.verbosity >= LogLevel.WARNING:    
+    if State.s.verbosity >= LogLevel.WARNING:    
         if ex == None:
             exMsg = ""
         else:
@@ -177,31 +239,20 @@ def warn(msg, ex=None):
         print(s)
 
 def info(msg=""):
-    if S.verbosity >= LogLevel.INFO:
+    if State.s.verbosity >= LogLevel.INFO:
         print(format_log(msg))
 
 def debug(msg=""):
     
-    if S.verbosity >= LogLevel.DEBUG:
+    if State.s.verbosity >= LogLevel.DEBUG:
         print(format_log("DEBUG=%s" % msg))
 
 
 
 
 class Expr:
-    def __init__(self, name=""):
-        self._name = name
-
-    def _reprname(self):
-        """ only to be used inside repr """
-        if self.name:
-            return ",name='%s'" % self.name        
-        else:
-            return ''
-
-    @property
-    def name(self):
-        return self._name
+    def __init__(self):
+        pass
 
     @property
     def dom(self):
@@ -212,7 +263,7 @@ class Expr:
         raise NotImplementedError("IMPLEMENT ME!")      
 
     def transpose(self):
-        if S.q():
+        if State.s.q():
             return T(self)
         else:
             s = self.simp()
@@ -231,8 +282,8 @@ class Expr:
                 and self.__class__ == expr2.__class__
 
 class BinOp(Expr):
-    def __init__(self, left, right, name=''):
-        super().__init__(name)
+    def __init__(self, left, right):
+        super().__init__()
         self.left = left
         self.right = right
 
@@ -247,7 +298,7 @@ class BinOp(Expr):
 
     def __repr__(self):
         
-        return "%s(%s,%s%s)" % (self.__class__.__name__, repr(self.left),repr(self.right), self._reprname())
+        return "%s(%s,%s)" % (self.__class__.__name__, repr(self.left),repr(self.right))
 
 
     def latex(self):
@@ -261,8 +312,8 @@ class BinOp(Expr):
 
 
 class RelMul(BinOp):
-    def __init__(self, left, right, name=''):
-        super().__init__(left, right, name)
+    def __init__(self, left, right):
+        super().__init__(left, right)
     
 
     def latex(self):
@@ -290,8 +341,8 @@ class RelMul(BinOp):
             return lsimp * rsimp
 
 class RelAdd(BinOp):
-    def __init__(self, left, right, name=''):
-        super().__init__(left, right, name=name)
+    def __init__(self, left, right):
+        super().__init__(left, right)
     
 
     def latex(self):
@@ -319,8 +370,8 @@ class RelAdd(BinOp):
 
 
 class UnOp(Expr):
-    def __init__(self, val, name=''):
-        super().__init__(name=name)
+    def __init__(self, val):
+        super().__init__()
         self.val = val
 
     def python_token(self):
@@ -336,7 +387,7 @@ class UnOp(Expr):
 
     def __repr__(self):
 
-        return "%s(%s%s)" % (self.__class__.__name__ , repr(self.val), self._reprname())
+        return "%s(%s)" % (self.__class__.__name__ , repr(self.val))
 
     def __eq__(self, unop2):
         return  super().__eq__(unop2) \
@@ -396,9 +447,9 @@ class Neg(UnOp):
         return self.val.cod
 
 class Val(Expr):
-    def __init__(self, val,name=''):
+    def __init__(self, val):
         ""
-        super().__init__(name=name)
+        super().__init__()
         self._val = val
 
     @property
@@ -413,13 +464,13 @@ class Val(Expr):
         return str(self.val)
 
     def __repr__(self):
-        return "%s(%s%s)" % (self.__class__.__name__ , repr(self.val), self._reprname())
+        return "%s(%s)" % (self.__class__.__name__ , repr(self.val))
 
 
 class Dioid(Val):
-    def __init__(self, val, name=''):
+    def __init__(self, val):
         ""        
-        super().__init__(val, name=name)
+        super().__init__(val)
         
     def __add__(self, d2):
         raise NotImplementedError("IMPLEMENT ME!")
@@ -443,8 +494,8 @@ class Dioid(Val):
         
     
 class RD(Dioid):
-    def __init__(self, val, name=''):
-        super().__init__(val, name=name)
+    def __init__(self, val):
+        super().__init__(val)
     
     def zero(self):
         return RD(0)
@@ -478,8 +529,8 @@ class RD(Dioid):
         return RD(round(self.val, ndigits))
     
 class BD(Dioid):
-    def __init__(self, val, name=''):
-        super().__init__(val, name=name)
+    def __init__(self, val):
+        super().__init__(val)
     
     def zero(self):
         return BD(False)
@@ -504,9 +555,9 @@ class BD(Dioid):
 
 class Rel(Expr):
     
-    def __init__(self,  g, dom, cod, name=''):
+    def __init__(self,  g, dom, cod):
         "" 
-        super().__init__(name=name)
+        super().__init__()
         if type(g) is not list:
             raise ValueError("Expected a list of lists, got instead type %s" % type(g))
         if len(g) == 0:
@@ -569,7 +620,7 @@ class Rel(Expr):
             res_g.append(new_row)
             for x in row:
                 new_row.append(f(x))
-        return Rel(res_g, self.dom, self.cod, name=self.name)
+        return Rel(res_g, self.dom, self.cod)
 
     def __round__(self, ndigits=0):
         if not isinstance(self.dioid(), RD):
@@ -579,7 +630,7 @@ class Rel(Expr):
         
 
     def __add__(self, r2):
-        if S.q():
+        if State.s.q():
             return RelAdd(self, r2)
         else:
 
@@ -589,14 +640,14 @@ class Rel(Expr):
                 res_g.append(row)
                 for j in range(len(self.cod)):
                     row.append(self.g[i][j] + r2.g[i][j])
-            return Rel(res_g, self.dom, self.cod, name=self.name)
+            return Rel(res_g, self.dom, self.cod)
                 
     def __mul__(self, r2):
         """ we don't consider __matmul__ for now (dont like the '@')
         """
         if r2 == None:
             raise ValueError("Can't multiply by None !")
-        if S.q():
+        if State.s.q():
             return RelMul(self, r2)
         else:
             res_g = []
@@ -609,11 +660,12 @@ class Rel(Expr):
                     for k in range(len(self.cod)):
                         val += self.g[i][k] * r2.g[k][j]
                     row.append(val)
-            return Rel(res_g, self.dom, r2.cod, name=self.name)
+            return Rel(res_g, self.dom, r2.cod)
 
     def __str__(self):
-        if S.q() and self.name:
-            return self.name
+        n = State.s.find_expr_name(self)
+        if State.s.q() and n:
+            return n
         else:
             
             data = []
@@ -624,19 +676,14 @@ class Rel(Expr):
                 row = [self.dom[i]]
                 row.extend(self.g[i])
                 data.append(row)
-            """
-            table = DoubleTable(data)
-            if self.name:
-                table.title = self.name
-            return table.table
-            """
+            
             return tabulate(data, tablefmt="fancy_grid")
             
     def __repr__(self):
-        return "Rel(%s,%s,%s%s)" % (repr(self.g), repr(self.dom), repr(self.cod) , self._reprname())
+        return "Rel(%s,%s,%s)" % (repr(self.g), repr(self.dom), repr(self.cod))
     
     def transpose(self):
-        if S.q():
+        if State.s.q():
             return T(self)
         else:
             res_g = []
@@ -646,11 +693,11 @@ class Rel(Expr):
                 for j in range(len(self.dom)):
                     row.append(self.g[j][i])
 
-            return Rel(res_g, self.cod, self.dom, name=self.name)
+            return Rel(res_g, self.cod, self.dom)
     T = property(transpose, None, None, "Matrix transposition.")
     
     def __neg__(self):
-        if S.q():
+        if State.s.q():
             return Neg(self)
         else:
             res_g = []
@@ -660,5 +707,10 @@ class Rel(Expr):
                 for j in range(len(self.cod)):
                     row.append(-self.g[i][j])
 
-            return Rel(res_g, self.dom, self.cod, name=self.name)
+            return Rel(res_g, self.dom, self.cod)
 
+    def __eq__(self, rel2):
+        return  super().__eq__(rel2) and \
+                self.g == rel2.g and     \
+                self.dom == rel2.dom and \
+                self.cod == rel2.cod

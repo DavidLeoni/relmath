@@ -2,14 +2,14 @@ import pytest
 from relmath import *
 
 def m0():
-    return Rel([[RD(0)]], ['a'], ['x'] , name='M')
+    return Rel([[RD(0)]], ['a'], ['x'])
 
 
 def m1():
-    return Rel([[RD(1)]], ['a'], ['x'] , name='M')
+    return Rel([[RD(1)]], ['a'], ['x'])
 
 def minus_m1():
-    return Rel([[RD(-1)]], ['a'], ['x'] , name='M')
+    return Rel([[RD(-1)]], ['a'], ['x'])
 
 
 def m21():
@@ -17,27 +17,48 @@ def m21():
                 [RD(7)],
                 [RD(9)]
                ],
-               ['a','b'], ['x'] , name='M21')
+               ['a','b'], ['x'])
 
 def m12():
     return Rel([
                 [RD(7),RD(9)]
-               ], ['x'], ['a','b'] , name='M12')
+               ], ['x'], ['a','b'])
 
+TEST_GLOBAL_M0 = m0()
 
 class TestState:
-    
+     
     def test_quotes(self):
-        print(S._quotes)
+        print(State.s._quotes)
 
         with quote():
-            print(S._quotes)
-        print(S._quotes)
+            print(State.s._quotes)
+        print(State.s._quotes)
 
+    def test_name(self):
+        M1_OUTSIDE_WITH = m1()
+
+        assert '' == State.s.find_expr_name(TEST_GLOBAL_M0)
+        assert '' == State.s.find_expr_name(M1_OUTSIDE_WITH)
+
+        with let():
+            assert 'TEST_GLOBAL_M0' == State.s.find_expr_name(TEST_GLOBAL_M0)
+            assert '' == State.s.find_expr_name(M1_OUTSIDE_WITH)
+
+        with let():
+            M0 = m0()
+            assert 'M0' == State.s.find_expr_name(M0)
+            assert 'M0' == State.s.find_expr_name(TEST_GLOBAL_M0)
+
+            M1 = m1()
+            assert 'M1' == State.s.find_expr_name(M1)
+
+        assert '' == State.s.find_expr_name(TEST_GLOBAL_M0)
 
 class TestRD:
     def test_eq(self):
         assert RD(1) == RD(1)
+        assert RD(0) != RD(1)
 
 class TestRel:
 
@@ -69,15 +90,20 @@ class TestRel:
             Rel(([RD(1),RD(2)]), ['a','b'], ['x'])
 
 
-    def test_name(self):
-        assert m1().name == 'M'
-
     def test_eq(self):
+        M0 = m0()
         M1 = m1()
+        assert M0 == m0()
         assert M1 == m1()
+        assert M0 != M1
+
+
 
     def test_val_RD(self):
         assert Rel([[1]],['a'],['x']) == Rel([[RD(1)]],['a'],['x'])
+        assert Rel([[1]],['a'],['x']) != Rel([[RD(1)]],['a'],['y'])
+        assert Rel([[1]],['a'],['x']) != Rel([[RD(1)]],['b'],['x'])
+        assert Rel([[1]],['a'],['x']) != Rel([[RD(0)]],['a'],['x'])
 
     def test_val_BD(self):
         assert Rel([[False]],['a'],['x']) == Rel([[BD(False)]],['a'],['x'])
@@ -178,10 +204,10 @@ def pexpr(msg, expr):
     info('str:\n%s' % str(expr))
 
 def test_trial():
-    M = Rel([[RD(9),RD(0), RD(6)], [RD(0),RD(5), RD(7)]], ['a','b'], ['x','y','z'] , name='M')
+    M = Rel([[RD(9),RD(0), RD(6)], [RD(0),RD(5), RD(7)]], ['a','b'], ['x','y','z'])
     U = Rel([[RD(9),RD(0), RD(6)], [RD(0),RD(5), RD(7)]], ['a','b'], ['x','y','z'])
 
-    print(-Rel([[RD(1)]],['a'],['x'],name='M') == Rel([[RD(-1)]],['a'],['x'],name='M'))
+    print(-Rel([[RD(1)]],['a'],['x']) == Rel([[RD(-1)]],['a'],['x']))
 
     pexpr('M.T', M.T)
     with quote():
@@ -225,39 +251,56 @@ def test_trial():
 
     pexpr("RelMul(M, T(M))" , RelMul(M, T(M)))
 
-    pexpr(" -Rel([[RD(1)]],['a'],['x'],name='M')",  -Rel([[RD(1)]],['a'],['x'],name='M'))
+    pexpr(" -Rel([[RD(1)]],['a'],['x'])",  -Rel([[RD(1)]],['a'],['x']))
 
 
 def test_scopes():
 
     def f():
         x = 'a'
-        print('locals in f %s' % locals())
-        print('z in f globals? %s' %  'z' in globals())
+        debug('locals in f %s' % locals())
+        debug('z in f globals? %s' %  'z' in globals())
         g()
 
     def g():
         y = 'b'
-        print('locals in g %s' % locals())
-        print('x in g globals? %s' % 'x' in globals())
+        debug('locals in g %s' % locals())
+        debug('x in g globals? %s' % 'x' in globals())
        
     z = 'c'
-    print('locals in root %s' % locals())
-    print('z in root globals ? %s' % 'z' in  globals())
+    debug('locals in root %s' % locals())
+    debug('z in root globals ? %s' % 'z' in  globals())
     f()    
 
     with quote():
         locs = locals()
-        print('u in locals() %s' % ('u' in locs))
+        debug('u in locals() %s' % ('u' in locs))
         u = 'w'
-        print('u in locs %s' % ('u' in locs))
-        print('u in locals() %s' % ('u' in locals()))
+        debug('u in locs %s' % ('u' in locs))
+        debug('u in locals() %s' % ('u' in locals()))
 
+def global_fun():
     with let():
-        baobab = 'w'
-        #S.save(locals())
+        b5 = 'b5'
+        debug("State.s.local_vars() = %s" % State.s.local_vars())
+        b6 = 'b6'
+        debug("State.s.local_vars() = %s" % State.s.local_vars())
+    
 
-S.verbosity = LogLevel.DEBUG
+def test_scopes_let():
+    with let():
+        b1 = 'b1'
+        debug("State.s.local_vars() = %s" % State.s.local_vars())
+        b2 = 'b2'
+        debug("State.s.local_vars() = %s" % State.s.local_vars())
+
+        with let():
+            b3 = 'b3'
+            debug("State.s.local_vars() = %s" % State.s.local_vars())
+            b4 = 'b4'
+            debug("State.s.local_vars() = %s" % State.s.local_vars())
+            global_fun()
     
-    
-test_scopes()
+test_scopes_let()
+
+test_trial()
