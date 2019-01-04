@@ -26,6 +26,8 @@ def Rel_bq_npartite(rel_exprs):
             raise ValueError("Expected an Expr ! Instead Found as value at index %s this  %s " % (i,expr))
         i += 1
 
+    
+
     """
         node_data = [
             {'label': 'A', 'shape': 'circle', 'shape_attrs': {'r': 20}, 'foo': 1},
@@ -54,14 +56,33 @@ def Rel_bq_npartite(rel_exprs):
                 link_data.append({'source': base + i, 'target': base + n + j, 'value': srel.g[i][j].val})
         base += n
     
+    aug_rel_exprs = rel_exprs + [rel_exprs[-1].simp().T]
+    
+    ry = 15
+    max_d_len = 2
+    for rel in aug_rel_exprs:
+        for d in srel.dom:
+            max_d_len = max(len(d), max_d_len)
+    rx = max_d_len * 5
+    if max_d_len > 2:
+        node_data_template = {  'shape' : 'ellipse', 
+                                # 'shape_attrs': {'rx': max_d_len * 7, 'ry': 10, 'width': 40}
+                                'shape_attrs': {'width': rx, 'height': ry + ry // 2},
+                                'shape_attrs': {'rx': rx, 'ry': ry}
+                             }
+    else: 
+        node_data_template = {'shape' : 'circle', 'shape_attrs': {'r': ry + ry // 2}}
+
+
     i = 0
-    for rel in rel_exprs + [rel_exprs[-1].simp().T]:
+    for rel in aug_rel_exprs:
         srel = rel.simp()
-        node_data.extend([{'label':dom, 'r':30} for dom in srel.dom])
+        # note: requires python 3.5
+        node_data.extend([{**node_data_template, 'label':d} for d in srel.dom])
         n = len(srel.dom)
         
         x.extend(([(i+1)*x_distance] * n))
-        y.extend(reversed(range(n)))
+        y.extend((ky for ky in reversed(range(n))))
 
         if i < len(rel_exprs):
             with quote():
@@ -69,14 +90,12 @@ def Rel_bq_npartite(rel_exprs):
 
         i += 1
 
-
-    fig_layout = Layout(width='960px', height='300px')
+    #fig_layout = Layout(width='960px', height='600px')
     
     xs = LinearScale()
     ys = LinearScale()
     lcs = ColorScale(scheme='Reds')
     
-    # TODO !!! WORKS FOR BINOPS ONLY IF I PUT MAGIC 3 NUMBER !!!!!!!!!
     labels = Label(x=[(i*x_distance) + (x_distance/2) for i in range(1, len(rel_exprs)+1)],
                    y=[max(y)+1]*2, scales={'x': xs, 'y': ys},
                 text=texts, default_size=26, font_weight='bolder',
@@ -98,7 +117,9 @@ def Rel_bq_npartite(rel_exprs):
                     scales={'x': xs, 'y': ys, 'link_color': lcs}, 
                     x=x, y=y,  color=['black']*len(node_data))
 
-    return Figure(marks=[graph, labels], layout=fig_layout)    
+    #return Figure(marks=[graph, labels], layout=fig_layout)    
+    #fig_layout = Layout(width='960px', height='600px')
+    return Figure(marks=[graph, labels])    
 
 
 

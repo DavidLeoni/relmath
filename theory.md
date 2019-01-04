@@ -25,5 +25,5 @@ as a collaborative effort.
 
 ## co-occurrance matrices
 
-* Nees Jan van Eck andLudo Waltman [How to Normalize Co-Occurrence Data? An Analysis of Some Well-Known Similarity Measures](https://repub.eur.nl/pub/14528/ERS-2009-001-LIS.pdf)
+* Nees Jan van Eck and Ludo Waltman [How to Normalize Co-Occurrence Data? An Analysis of Some Well-Known Similarity Measures](https://repub.eur.nl/pub/14528/ERS-2009-001-LIS.pdf)
 * Loet Leydesdorff [Should Co-occurrence Data be Normalized?](https://www.leydesdorff.net/coocc07/)

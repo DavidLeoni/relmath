@@ -44,6 +44,8 @@ class State:
     def pop_env(self):
         debug('local vars diff = %s' % self.local_vars())
         self._format_level -= 2
+        # TODO: break frame cycles?
+        # See https://docs.python.org/3/library/inspect.html#the-interpreter-stack
         self._frames.pop()
         self._old_local_var_keys.pop()
     
@@ -52,6 +54,12 @@ class State:
             Return the last name associated to an expression.
             If not found, return the empty string.
         """
+
+        # See also: 
+        #    PEP 3104: Access to Names in Outer Scopes   https://www.python.org/dev/peps/pep-3104/
+        #    Accessing non local vars:  https://stackoverflow.com/questions/8968407/where-is-nonlocals#
+        #    
+
         i = len(self._frames) - 1
         for frame in reversed(self._frames):
             diff_keys = frame.f_locals.keys() - self._old_local_var_keys[i]
