@@ -7,11 +7,16 @@ from relmath import *
 
 def Rel_bq_npartite(rel_exprs):
     """ 
-            M1      M2      M3
-        a   --  x       p        g
-        b   --  y    /  q  ----- b
-        c   \   z  /
-              \ w
+            M1      M2     M3
+        a  ---- x ----- p --- g
+        b  -----y     _-q --- h
+        c  -----z ---/      
+                w
+
+                M1*M1*M3
+        a ------------------- g
+        b                 _-- h
+        c ---------------/
     """    
     if len(rel_exprs) == 0:
         raise ValueError("Expected a non-empty list !")
@@ -59,7 +64,7 @@ def Rel_bq_npartite(rel_exprs):
         y.extend(reversed(range(n)))
 
         if i < len(rel_exprs):
-            with Q(S):
+            with quote():
                 texts.append(str(rel))
 
         i += 1
@@ -109,21 +114,3 @@ def BinOp_to_bq(self):
 # monkey patching
 Rel.bq_npartite = Rel_bq_npartite
 BinOp.to_bq = BinOp_to_bq
-
-with Q(S):
-    
-    M = Rel([
-                [0.2, 0.7, 0, 0],
-                [0.9,0,0.5,0],
-                [0.9,0,0,0]
-            ], 
-            ['a','b','c'], 
-            ['x','y','z','w'],
-            name='M')
-
-    
-    E = M * M.T
-    
-print(E)
-print(E.simp())
-E.to_bq()

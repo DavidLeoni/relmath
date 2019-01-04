@@ -25,6 +25,27 @@ class State:
         self._frames = []
         self._old_local_var_keys = []  # list of sets (of keys)
 
+    def push_env(self):
+        """ NOTE: USE *ONLY* IN MAIN !
+                  ELSEWHERE PREFER WITH STATEMENTS
+        """
+        self._push_env(2)
+
+    def _push_env(self, stack_depth):
+        """ NOTE: USE *ONLY* IN MAIN !
+                  ELSEWHERE PREFER WITH STATEMENTS
+        """
+        f=inspect.stack()[stack_depth].frame  
+        #state._local_vars.append(f.f_locals)
+        self._frames.append(f)
+        self._old_local_var_keys.append(set(f.f_locals.keys()))
+        self._format_level += 2
+    
+    def pop_env(self):
+        debug('local vars diff = %s' % self.local_vars())
+        self._format_level -= 2
+        self._frames.pop()
+        self._old_local_var_keys.pop()
     
     def find_expr_name(self, expr):
         """
@@ -34,11 +55,13 @@ class State:
         i = len(self._frames) - 1
         for frame in reversed(self._frames):
             diff_keys = frame.f_locals.keys() - self._old_local_var_keys[i]
+            # NOTE: using 'is' instead of equality to prevent double naming
+            # See https://github.com/DavidLeoni/relmath/wiki/Taking-variables-names-from-environment
             for k in diff_keys:
-                if expr == frame.f_locals[k]:
+                if expr is frame.f_locals[k]:
                     return k
             for k in frame.f_globals.keys():
-                if expr == frame.f_globals[k]:
+                if expr is frame.f_globals[k]:
                     return k
             i -= 1
         return ""
@@ -118,17 +141,10 @@ def let(state=State.s):
             baobab = 'w'
 
     """
-    f=inspect.stack()[2].frame  # because of implicit __enter__ call
-    #state._local_vars.append(f.f_locals)
-    state._frames.append(f)
-    state._old_local_var_keys.append(set(f.f_locals.keys()))
-    state._format_level += 2
+    state._push_env(3)    # because of implicit __enter__ call
     yield
-    debug('local vars diff = %s' % state.local_vars())
-    state._format_level -= 2
-    state._frames.pop()
-    state._old_local_var_keys.pop()
-    
+    state.pop_env()
+
 @contextmanager
 def unquote(state=State.s):
     debug('unquoted')

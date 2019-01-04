@@ -48,7 +48,11 @@ class TestState:
         with let():
             M0 = m0()
             assert 'M0' == State.s.find_expr_name(M0)
-            assert 'M0' == State.s.find_expr_name(TEST_GLOBAL_M0)
+            # because of this:  https://github.com/DavidLeoni/relmath/wiki/Taking-variables-names-from-environment
+            # thinking about it, it is not so unsurprising. After all we we are passing a 
+            # direct reference to a global var, so we must be aware it exists even if 
+            # we have a local expression M0 which could alias it
+            assert 'TEST_GLOBAL_M0' == State.s.find_expr_name(TEST_GLOBAL_M0)
 
             M1 = m1()
             assert 'M1' == State.s.find_expr_name(M1)
@@ -59,6 +63,23 @@ class TestRD:
     def test_eq(self):
         assert RD(1) == RD(1)
         assert RD(0) != RD(1)
+
+class TestPythonEq:
+    """ Demonstrates Python equality mechanism. 
+        See https://github.com/DavidLeoni/relmath/wiki/Taking-variables-names-from-environment
+    """
+    def test_base_vars(self):
+
+        x = 5
+        y = 5
+        assert (x == y) == True
+        assert (x is y) == True  # can't use it for pinpointing named vars, too bad
+    
+    def test_objects(self):
+        x = []
+        y = []
+        assert (x == y) == True
+        assert (x is y) == False  # good
 
 class TestRel:
 
